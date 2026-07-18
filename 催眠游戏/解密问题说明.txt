@@ -1,0 +1,78 @@
+# 催眠遊戯 解密问题说明
+
+## 当前状态
+
+data0-data8.pack 已上传到仓库，但尚未成功解密。
+
+## 尝试过的方法（均失败）
+
+1. **简单 XOR 解密** — 用 KeyFile 中的密钥对 .pack 文件做 XOR，结果不是有效的 XP3 头
+2. **字节交换 + XOR** — 先交换相邻字节再 XOR，也不行
+3. **UTF-8 编码转换** — .pack 文件是合法的 UTF-8，但转换后不是标准格式
+4. **Python 库** — 没有现成的 KiriKiri Z 解密库（pip 搜不到）
+5. **KirikiriTools** — GitHub 上找不到可用的版本
+
+## 根本原因
+
+KiriKiri Z 的加密算法是游戏特定的。每款游戏可能使用不同的：
+- XOR 密钥派生方式
+- 字节扰乱（scrambling）算法
+- 文件头格式
+
+催眠遊戯（开发商: Stuffing, game ID: crossover）的加密方式无法通过通用方法破解。
+
+## KeyFile 结构
+
+data8.pack 是 KeyFile ver1.0：
+- 0x00: 'KeyFile ver1.0\x00\x00' (16 bytes)
+- 0x10: version (4 bytes LE) = 1
+- 0x14: entry_size (4 bytes LE) = 4096
+- 0x18: key_offset (4 bytes LE) = 20
+- 0x20: game ID: 'crossover'
+- 0x100+: 密钥数据（约 3MB）
+
+## 推荐解决方案
+
+### 方案一：GARbro（推荐）
+
+GARbro 是 Windows 工具，内置对大量 KiriKiri Z 游戏的解密支持。
+
+1. 下载 GARbro: https://github.com/morkt/GARbro/releases
+2. 打开 GARbro，导航到催眠遊戯的 .pack 文件所在目录
+3. GARbro 会自动识别 KeyFile（data8.pack）并解密
+4. 导出解密后的文件
+
+### 方案二：KrkrExtract
+
+KrkrExtract 是另一个 KiriKiri Z 解密工具。
+
+1. 下载: https://github.com/Albedo-Lover/KrkrExtract/releases
+2. 运行游戏，在游戏进程中注入 KrkrExtract
+3. 自动解密并导出文件
+
+### 方案三：在游戏运行时抓取
+
+1. 正常运行游戏
+2. 使用工具（如 Process Monitor）监控文件访问
+3. 游戏解密文件后从内存中提取
+
+## 解密后需要做的事
+
+1. 解密 .pack → 得到 XP3 归档
+2. 解压 XP3 → 得到 .ks 脚本文件
+3. .ks 文件是纯文本，包含游戏剧情/对话
+
+## 文件说明
+
+- data0.pack — 27KB（小文件）
+- data1.pack — 约 370MB（37 个分块）
+- data2.pack — 约 210MB（21 个分块）
+- data3.pack — 约 750MB（72 个分块）
+- data4.pack — 约 280MB（28 个分块）
+- data5.pack — 10MB
+- data6.pack — 1.9MB
+- data7.pack — 17MB
+- data8.pack — 3MB（KeyFile 密钥文件）
+
+data1-4 因超过 GitHub 100MB 限制，按 10MB 分块上传在 large-packs/ 目录。
+合并命令: `cat data1.pack.part* > data1.pack`（Linux）或 PowerShell 版本见 README。
