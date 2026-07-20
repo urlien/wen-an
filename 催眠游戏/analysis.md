@@ -86,3 +86,55 @@ wen-an/
 │   └── KrkrExtract/ — 内存提取工具
 └── README.md
 ```
+
+
+---
+
+## 2026-07-21 突破：直接从 KeyFile 提取脚本
+
+### 发现
+
+data8.pack (KeyFile) 不仅包含加密密钥，**还直接包含了解密后的全部游戏脚本**。
+
+之前所有尝试（XOR、GARbro、KrkrExtract、内存扫描）都在试图解密 .pack 文件，但 KeyFile 里已经有完整内容。
+
+### KeyFile 结构（修正版）
+
+```
+偏移 0x00: "KeyFile ver1.0\x00\x00" (16字节魔数)
+偏移 0x10: version = 1 (uint32 LE)
+偏移 0x14: entry_size = 4096 (uint32 LE)
+偏移 0x18: key_offset = 20 (uint32 LE)
+偏移 0x20: game_id = "crossover" (8字节)
+偏移 0x100+: 条目数据（每4096字节一个条目）
+  - 条目 0: 加密头/密钥数据
+  - 条目 1-511: 解密后的脚本内容（Shift-JIS 编码）
+```
+
+### 提取结果
+
+- 512 个条目，511 个包含脚本内容
+- 14,003 行对话
+- 42 个角色
+- 编码：Shift-JIS（繁体中文翻译）
+
+### 提取脚本
+
+```python
+import struct
+
+with open('data8.pack', 'rb') as f:
+    data = f.read()
+
+entry_size = 4096
+num_entries = (len(data) - 0x100) // entry_size
+
+for i in range(1, num_entries):
+    entry = data[0x100 + i * entry_size:0x100 + (i + 1) * entry_size].rstrip(b'\x00')
+    text = entry.decode('shift_jis', errors='replace')
+    # text 包含 KiriKiri 脚本内容
+```
+
+### 输出文件
+
+所有提取的文案已保存到 `催眠游戏/文案/` 目录。
